@@ -19,21 +19,6 @@ func generateRandomString(leng int) string {
 	return tmp
 }
 
-func rnInt(rn rune) int {
-	tmp := int(rn) - 65
-	if (tmp < 0) || (tmp > 57) {
-		log.Println("Invalid Input")
-	}
-	// Convert to lowercase
-	if tmp > 31 {
-		tmp -= 32
-	}
-	if tmp > 25 {
-		log.Fatal("You gave me an invalid character", rn)
-	}
-	return tmp
-}
-
 func TestCategorise(t *testing.T) {
 	testString := "azAZ"
 	// Categorise the input string into buckets
