@@ -56,7 +56,7 @@ func ReadBlockDict(fname string, blkSize int) (out_chan chan []string) {
 }
 func readBlockDict(fname string, outChan chan []string, blkSize int) {
 	// Extract messages from the log and put them
-	// onto the lm.messageChan
+	// onto the channel
 	//fmt.Println("Reading from log:", fname)
 	f, err := os.Open(fname)
 	check(err)
@@ -145,12 +145,14 @@ func (b arrayBucket) tM(candidate string) bool {
 	for _, v := range candidate {
 		tmp, ok := rnInt(v)
 		if ok && !b.got(tmp) {
+			// if we can't successfully take a token from the bucket, then fail
 			return false
 		}
 	}
 	return true
 }
 func (b arrayBucket) testMatch(candidate string) bool {
+	// We make a copy because each test subtracts one from the total
 	tmpBucket := b.Copy()
 	return tmpBucket.tM(candidate)
 }
@@ -163,6 +165,8 @@ func (b arrayBucket) Worker(inChan <-chan string, outChan chan<- string, wg *syn
 	wg.Add(1)
 	go func() {
 		for cand := range inChan {
+			//Test against the bucket if
+			// it the cand can be made from available tokens
 			if b.testMatch(cand) {
 				outChan <- cand
 			}
@@ -175,7 +179,7 @@ func (b arrayBucket) BlockWorker(inChan <-chan []string, outChan chan<- string, 
 	go func() {
 		for candA := range inChan {
 			for _, cand := range candA {
-				//log.Println("tetsing", cand)
+				//log.Println("testing", cand)
 				if b.testMatch(cand) {
 					outChan <- cand
 				}
