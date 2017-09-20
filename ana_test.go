@@ -223,7 +223,7 @@ func parRun(parCnt int, b *testing.B) {
 	var wg sync.WaitGroup
 	go dummyDict(wordList, srcChan)
 	go func() {
-		for _ = range dstChan {
+		for range dstChan {
 			//fmt.Printf("Word %v, matched against %v\n", v, refString)
 		}
 	}()
@@ -253,7 +253,7 @@ func parBlockRun(parCnt int, blkLen int, b *testing.B) {
 	//log.Println("gnerating array with Items", numItems)
 	go dummyBlockDict(wordList, srcChan, blkLen)
 	go func() {
-		for _ = range dstChan {
+		for range dstChan {
 			//fmt.Printf("Word %v, matched against %v\n", v, refString)
 		}
 	}()
