@@ -91,7 +91,7 @@ func TestMapMatchPass(t *testing.T) {
 	}
 
 	// categorise the reference
-	catBucket := NewMapBucket(refString)
+	catBucket := newMapBucket(refString)
 	for _, passString := range passStrings {
 		match := catBucket.testMatch(passString)
 		if match {
@@ -112,7 +112,7 @@ func TestMapMatchFail(t *testing.T) {
 	}
 
 	// categorise the reference
-	catBucket := NewMapBucket(refString)
+	catBucket := newMapBucket(refString)
 	for _, failString := range failStrings {
 		match := catBucket.testMatch(failString)
 		if !match {
@@ -134,7 +134,7 @@ func TestCacheMatchPass(t *testing.T) {
 	}
 
 	// categorise the reference
-	catBucket := NewCacheBucket(refString)
+	catBucket := newCacheBucket(refString)
 	for _, passString := range passStrings {
 		match := catBucket.testMatch(passString)
 		if match {
@@ -155,7 +155,7 @@ func TestCacheMatchFail(t *testing.T) {
 	}
 
 	// categorise the reference
-	catBucket := NewCacheBucket(refString)
+	catBucket := newCacheBucket(refString)
 	for _, failString := range failStrings {
 		match := catBucket.testMatch(failString)
 		if !match {
@@ -197,7 +197,7 @@ func BenchmarkMapBucket(b *testing.B) {
 
 	refString := generateRandomString(9)
 	b.StartTimer()
-	catBucket := NewMapBucket(refString)
+	catBucket := newMapBucket(refString)
 	for _, passString := range wordList {
 		catBucket.testMatch(passString)
 	}
@@ -209,7 +209,7 @@ func BenchmarkCacheBucket(b *testing.B) {
 
 	refString := generateRandomString(9)
 	b.StartTimer()
-	catBucket := NewCacheBucket(refString)
+	catBucket := newCacheBucket(refString)
 	for _, passString := range wordList {
 		catBucket.testMatch(passString)
 	}

@@ -28,9 +28,12 @@ func rnInt(rn rune) (int, bool) {
 	}
 	return tmp, true
 }
-func ReadDict(fname string) (out_chan chan string) {
-	out_chan = make(chan string, 10)
-	go readDict(fname, out_chan)
+
+// ReadDict is called to read in the dictionary
+// and output the words line by line
+func ReadDict(fname string) (outChan chan string) {
+	outChan = make(chan string, 10)
+	go readDict(fname, outChan)
 	return
 }
 func readDict(fname string, outChan chan string) {
@@ -49,9 +52,13 @@ func readDict(fname string, outChan chan string) {
 	}
 	close(outChan)
 }
-func ReadBlockDict(fname string, blkSize int) (out_chan chan []string) {
-	out_chan = make(chan []string, 10)
-	go readBlockDict(fname, out_chan, blkSize)
+
+// ReadBlockDict is called to read in the dictionary
+// and output the words line by line
+// It uses arrays of strings (blocks) to reduce GC and channel congestion
+func ReadBlockDict(fname string, blkSize int) (outChan chan []string) {
+	outChan = make(chan []string, 10)
+	go readBlockDict(fname, outChan, blkSize)
 	return
 }
 func readBlockDict(fname string, outChan chan []string, blkSize int) {
@@ -84,7 +91,12 @@ func dummyDict(arr []string, outChan chan string) {
 	}
 	close(outChan)
 }
-func AnaHelper(filename string, refString string, parCnt int) (dstChan chan string) {
+
+// Helper is the function an external program is expected to use
+// give it a file to read a refString to look for
+// and the number of parallel routines it is allowed to use
+// and it will return a channel of words that match
+func Helper(filename string, refString string, parCnt int) (dstChan chan string) {
 	var wg sync.WaitGroup
 	blkSize := 128
 	dstChan = make(chan string)
@@ -115,33 +127,35 @@ func dummyBlockDict(arr []string, outChan chan []string, cnt int) {
 	close(outChan)
 }
 
-type arrayBucket []int
+// ArrayBucket is the count of
+// the number of times a letter appears in a ref string
+type ArrayBucket []int
 
-func NewArrayBucket(in string) arrayBucket {
+// NewArrayBucket creates a new ab from a string
+func NewArrayBucket(in string) ArrayBucket {
 	retArray := make([]int, 26)
 
 	for _, v := range in {
 		tmp, ok := rnInt(v)
 		if ok {
-			retArray[tmp] += 1
+			retArray[tmp]++
 		}
 	}
-
 	return retArray
 }
-func (b arrayBucket) got(v int) bool {
+func (b ArrayBucket) got(v int) bool {
 	if (v >= len(b)) || (v < 0) {
 		fmt.Println("got has been asked for:", v)
 		return false
 	}
 	if b[v] > 0 {
-		b[v] -= 1
+		b[v]--
 		return true
-	} else {
-		return false
 	}
+	return false
+
 }
-func (b arrayBucket) tM(candidate string) bool {
+func (b ArrayBucket) tM(candidate string) bool {
 	for _, v := range candidate {
 		tmp, ok := rnInt(v)
 		if ok && !b.got(tmp) {
@@ -151,17 +165,21 @@ func (b arrayBucket) tM(candidate string) bool {
 	}
 	return true
 }
-func (b arrayBucket) testMatch(candidate string) bool {
+func (b ArrayBucket) testMatch(candidate string) bool {
 	// We make a copy because each test subtracts one from the total
-	tmpBucket := b.Copy()
+	tmpBucket := b.copy()
 	return tmpBucket.tM(candidate)
 }
-func (b arrayBucket) Copy() arrayBucket {
+func (b ArrayBucket) copy() ArrayBucket {
 	retArray := make([]int, 26)
 	copy(retArray, b)
 	return retArray
 }
-func (b arrayBucket) Worker(inChan <-chan string, outChan chan<- string, wg *sync.WaitGroup) {
+
+// Worker is what you call on the bucket
+// to test each input possible word
+// against those in the created bucket
+func (b ArrayBucket) Worker(inChan <-chan string, outChan chan<- string, wg *sync.WaitGroup) {
 	wg.Add(1)
 	go func() {
 		for cand := range inChan {
@@ -174,7 +192,13 @@ func (b arrayBucket) Worker(inChan <-chan string, outChan chan<- string, wg *syn
 		wg.Done()
 	}()
 }
-func (b arrayBucket) BlockWorker(inChan <-chan []string, outChan chan<- string, wg *sync.WaitGroup) {
+
+// BlockWorker is what you call on the bucket
+// to test each input possible word
+// against those in the created bucket
+// except it works on blocks of strings at a time
+// to reduce GC and channel congestion
+func (b ArrayBucket) BlockWorker(inChan <-chan []string, outChan chan<- string, wg *sync.WaitGroup) {
 	wg.Add(1)
 	go func() {
 		for candA := range inChan {
@@ -189,11 +213,13 @@ func (b arrayBucket) BlockWorker(inChan <-chan []string, outChan chan<- string, 
 	}()
 }
 
+// A map bucket is a map from a letter to the numnber of
+// times we see that letter (for the input string)
 type mapBucket struct {
 	bukMap map[int]int
 }
 
-func NewMapBucket(in string) *mapBucket {
+func newMapBucket(in string) *mapBucket {
 	itm := new(mapBucket)
 	itm.bukMap = make(map[int]int)
 
@@ -204,7 +230,7 @@ func NewMapBucket(in string) *mapBucket {
 			if !ok {
 				v = 1
 			} else {
-				v += 1
+				v++
 			}
 			itm.bukMap[tmp] = v
 		}
@@ -213,10 +239,10 @@ func NewMapBucket(in string) *mapBucket {
 }
 
 func (b mapBucket) testMatch(candidate string) bool {
-	tmpBucket := b.Copy()
+	tmpBucket := b.copy()
 	return tmpBucket.tM(candidate)
 }
-func (b mapBucket) Copy() arrayBucket {
+func (b mapBucket) copy() ArrayBucket {
 	retArray := make([]int, 26)
 	for key, val := range b.bukMap {
 		retArray[key] = val
@@ -229,15 +255,15 @@ var arrayPool = sync.Pool{
 		// The Pool's New function should generally only return pointer
 		// types, since a pointer can be put into the return interface
 		// value without an allocation:
-		var tmp arrayBucket
-		tmp = make(arrayBucket, 26)
+		var tmp ArrayBucket
+		tmp = make(ArrayBucket, 26)
 		return &tmp
 	},
 }
 
-type cacheBucket arrayBucket
+type cacheBucket ArrayBucket
 
-func NewCacheBucket(in string) *cacheBucket {
+func newCacheBucket(in string) *cacheBucket {
 	itm := make(cacheBucket, 26)
 	tmp := NewArrayBucket(in)
 	cnt := copy(itm, tmp)
@@ -253,8 +279,8 @@ func (b cacheBucket) testMatch(candidate string) bool {
 	arrayPool.Put(tmpBucket)
 	return result
 }
-func (b cacheBucket) Copy() *arrayBucket {
-	retArray := arrayPool.Get().(*arrayBucket)
+func (b cacheBucket) Copy() *ArrayBucket {
+	retArray := arrayPool.Get().(*ArrayBucket)
 	cnt := copy(*retArray, b)
 	if cnt != 26 {
 		log.Fatal("Copy failed from", *retArray, b)
