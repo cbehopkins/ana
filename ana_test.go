@@ -10,6 +10,25 @@ import (
 	"github.com/pkg/profile"
 )
 
+func dummyDict(arr []string, outChan chan string) {
+	for _, st := range arr {
+		outChan <- st
+	}
+	close(outChan)
+}
+func dummyBlockDict(arr []string, outChan chan []string, cnt int) {
+
+	for len(arr) > 0 {
+		if cnt > len(arr) {
+			cnt = len(arr)
+		}
+		srA := arr[:cnt]
+		arr = arr[cnt:]
+		outChan <- srA
+	}
+	close(outChan)
+}
+
 func generateRandomString(leng int) string {
 	tmp := ""
 	for i := 0; i < leng; i++ {

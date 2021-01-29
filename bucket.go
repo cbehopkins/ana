@@ -1,18 +1,11 @@
 package ana
 
 import (
-	"bufio"
 	"fmt"
 	"log"
-	"os"
 	"sync"
 )
 
-func check(err error) {
-	if err != nil {
-		log.Fatal(err)
-	}
-}
 func rnInt(rn rune) (int, bool) {
 	tmp := int(rn) - 65
 	if (tmp < 0) || (tmp > 57) {
@@ -27,104 +20,6 @@ func rnInt(rn rune) (int, bool) {
 		log.Fatal("You gave me an invalid character", rn)
 	}
 	return tmp, true
-}
-
-// ReadDict is called to read in the dictionary
-// and output the words line by line
-func ReadDict(fname string) (outChan chan string) {
-	outChan = make(chan string, 10)
-	go readDict(fname, outChan)
-	return
-}
-func readDict(fname string, outChan chan string) {
-	// Extract messages from the log and put them
-	// onto the lm.messageChan
-	//fmt.Println("Reading from log:", fname)
-	f, err := os.Open(fname)
-	check(err)
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		outChan <- scanner.Text()
-	}
-
-	if err := scanner.Err(); err != nil {
-		//fmt.Fprintln(os.Stderr, "reading standard input:", err)
-	}
-	close(outChan)
-}
-
-// ReadBlockDict is called to read in the dictionary
-// and output the words line by line
-// It uses arrays of strings (blocks) to reduce GC and channel congestion
-func ReadBlockDict(fname string, blkSize int) (outChan chan []string) {
-	outChan = make(chan []string, 10)
-	go readBlockDict(fname, outChan, blkSize)
-	return
-}
-func readBlockDict(fname string, outChan chan []string, blkSize int) {
-	// Extract messages from the log and put them
-	// onto the channel
-	//fmt.Println("Reading from log:", fname)
-	f, err := os.Open(fname)
-	check(err)
-	scanner := bufio.NewScanner(f)
-
-	var tmpArr []string
-	for scanner.Scan() {
-		tmpArr = append(tmpArr, scanner.Text())
-		if len(tmpArr) >= blkSize {
-			outChan <- tmpArr
-			tmpArr = make([]string, 0)
-		}
-	}
-	if len(tmpArr) > 0 {
-		outChan <- tmpArr
-	}
-	if err := scanner.Err(); err != nil {
-		//fmt.Fprintln(os.Stderr, "reading standard input:", err)
-	}
-	close(outChan)
-}
-func dummyDict(arr []string, outChan chan string) {
-	for _, st := range arr {
-		outChan <- st
-	}
-	close(outChan)
-}
-
-// Helper is the function an external program is expected to use
-// give it a file to read a refString to look for
-// and the number of parallel routines it is allowed to use
-// and it will return a channel of words that match
-func Helper(filename string, refString string, parCnt int) (dstChan chan string) {
-	var wg sync.WaitGroup
-	blkSize := 128
-	dstChan = make(chan string)
-	srcChan := ReadBlockDict(filename, blkSize)
-	catBucket := NewArrayBucket(refString)
-	go func() {
-		for i := 0; i < parCnt; i++ {
-			catBucket.BlockWorker(srcChan, dstChan, &wg)
-		}
-		wg.Wait()
-		close(dstChan)
-	}()
-	return dstChan
-
-}
-func dummyBlockDict(arr []string, outChan chan []string, cnt int) {
-
-	for len(arr) > 0 {
-		//log.Println("Array:", arr)
-		if cnt > len(arr) {
-			cnt = len(arr)
-		}
-		srA := arr[:cnt]
-		arr = arr[cnt:]
-		//log.Println("Sending:", srA)
-		outChan <- srA
-	}
-	close(outChan)
 }
 
 // ArrayBucket is the count of
@@ -199,18 +94,15 @@ func (b ArrayBucket) Worker(inChan <-chan string, outChan chan<- string, wg *syn
 // except it works on blocks of strings at a time
 // to reduce GC and channel congestion
 func (b ArrayBucket) BlockWorker(inChan <-chan []string, outChan chan<- string, wg *sync.WaitGroup) {
-	wg.Add(1)
-	go func() {
-		for candA := range inChan {
-			for _, cand := range candA {
-				//log.Println("testing", cand)
-				if b.testMatch(cand) {
-					outChan <- cand
-				}
+
+	for candA := range inChan {
+		for _, cand := range candA {
+			if b.testMatch(cand) {
+				outChan <- cand
 			}
 		}
-		wg.Done()
-	}()
+	}
+	wg.Done()
 }
 
 // A map bucket is a map from a letter to the numnber of
