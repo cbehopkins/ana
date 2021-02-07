@@ -3,7 +3,6 @@ package ana
 import (
 	"bufio"
 	"bytes"
-	"fmt"
 	"io"
 	"os"
 )
@@ -59,7 +58,7 @@ func readReaderDict(r io.Reader, outChan chan []string, blkSize int) {
 	for scanner.Scan() {
 		tmpArr = append(tmpArr, scanner.Text())
 		if len(tmpArr) >= blkSize {
-			fmt.Println("Sending:", tmpArr)
+			//fmt.Println("Sending:", tmpArr)
 			outChan <- tmpArr
 			tmpArr = make([]string, 0)
 		}
@@ -70,6 +69,6 @@ func readReaderDict(r io.Reader, outChan chan []string, blkSize int) {
 	if err := scanner.Err(); err != nil {
 		//fmt.Fprintln(os.Stderr, "reading standard input:", err)
 	}
-	fmt.Println("Finished reading in dict, Closing")
+	//fmt.Println("Finished reading in dict, Closing")
 	close(outChan)
 }
